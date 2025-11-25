@@ -401,9 +401,41 @@ async def maps_collect(maps_url: str, limit: int, include_no_site: bool, aggress
         browser = await p.chromium.launch(**launch_kwargs)
         context = await browser.new_context(locale="en-US")
         page = await context.new_page()
+        # Force English and US region to reduce consent/localization variance
+        try:
+            if ('hl=' not in maps_url) and ('gl=' not in maps_url):
+                maps_url = maps_url + ("&" if "?" in maps_url else "?") + "hl=en&gl=us"
+        except Exception:
+            pass
         await page.goto(maps_url, wait_until="domcontentloaded")
         # Give Maps time to render the UI (especially on cold starts)
         await page.wait_for_timeout(1500)
+
+        async def dismiss_consent():
+            # Try common consent dialogs: EU/DE variants, different UIs
+            selectors = [
+                'button#L2AGLb',
+                'form[action*="consent"] button',
+                'button[aria-label^="Accept" i]',
+                'button:has-text("I agree")',
+                'button:has-text("Accept all")',
+                'button:has-text("Ich stimme zu")',
+                'button:has-text("Alle akzeptieren")',
+            ]
+            try:
+                for sel in selectors:
+                    try:
+                        el = await page.query_selector(sel)
+                        if el:
+                            await el.click();
+                            await page.wait_for_timeout(600)
+                            break
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+        await dismiss_consent()
 
         async def collect_once():
             return await page.evaluate(r"""

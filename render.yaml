@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: 3amigos-scrapper-api
+    env: python
+    plan: free
+    rootDir: .
+    buildCommand: |
+      pip install -r requirements.txt
+      python -m playwright install --with-deps || true
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.10"
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: /opt/render/project/.playwright
+    autoDeploy: true
